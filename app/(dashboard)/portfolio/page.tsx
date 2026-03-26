@@ -26,31 +26,34 @@ export default async function PortfolioPage() {
       <section className="card">
         <h3 className="font-semibold mb-2">Ativos na carteira</h3>
         {wallet.holdings.map((h) => (
-          <div key={h.id} className="flex justify-between border-b border-border py-2 text-sm">
+          <div key={h.id} className="flex flex-col gap-1 sm:flex-row sm:justify-between border-b border-border py-2 text-sm">
             <span>{h.asset.ticker} ({h.quantity})</span>
-            <span>Médio R$ {Number(h.averagePrice).toFixed(2)} | Estimado R$ {(h.quantity * Number(h.asset.currentPrice)).toFixed(2)}</span>
+            <span className="break-words">Médio R$ {Number(h.averagePrice).toFixed(2)} | Estimado R$ {(h.quantity * Number(h.asset.currentPrice)).toFixed(2)}</span>
           </div>
         ))}
+        {wallet.holdings.length === 0 && <p className="text-sm text-slate-400">Você ainda não possui ativos em carteira.</p>}
       </section>
 
       <section className="card">
         <h3 className="font-semibold mb-2">Histórico de ordens</h3>
         {wallet.orders.map((o) => (
-          <div key={o.id} className="flex justify-between border-b border-border py-2 text-sm">
-            <span>{o.type} {o.quantity}x {o.asset.ticker} · R$ {Number(o.totalValue).toFixed(2)}</span>
+          <div key={o.id} className="flex flex-col gap-2 sm:flex-row sm:justify-between border-b border-border py-2 text-sm">
+            <span className="break-words">{o.type} {o.quantity}x {o.asset.ticker} · R$ {Number(o.totalValue).toFixed(2)}</span>
             <StatusBadge value={o.status} />
           </div>
         ))}
+        {wallet.orders.length === 0 && <p className="text-sm text-slate-400">Nenhuma ordem executada até agora.</p>}
       </section>
 
       <section className="card">
         <h3 className="font-semibold mb-2">Histórico de câmbio</h3>
         {exchanges.map((op) => (
-          <div key={op.id} className="flex justify-between border-b border-border py-2 text-sm">
-            <span>{op.type} · jogo {Number(op.amountGameCurrency).toFixed(2)} → plataforma R$ {Number(op.amountPlatformCurrency).toFixed(2)}</span>
+          <div key={op.id} className="flex flex-col gap-2 sm:flex-row sm:justify-between border-b border-border py-2 text-sm">
+            <span className="break-words">{op.type} · jogo {Number(op.amountGameCurrency).toFixed(2)} → plataforma R$ {Number(op.amountPlatformCurrency).toFixed(2)}</span>
             <StatusBadge value={op.status} />
           </div>
         ))}
+        {exchanges.length === 0 && <p className="text-sm text-slate-400">Nenhum câmbio registrado.</p>}
       </section>
     </div>
   );

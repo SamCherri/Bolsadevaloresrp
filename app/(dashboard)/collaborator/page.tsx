@@ -14,11 +14,11 @@ export default async function CollaboratorPage() {
       <div className="space-y-3">
         {operations.map((op) => (
           <div key={op.id} className="border border-border rounded-lg p-3 text-sm">
-            <div className="flex justify-between items-center">
-              <p>{op.user.username} · {op.type} · Taxa {Number(op.exchangeRate).toFixed(4)}</p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
+              <p className="break-words">{op.user.username} · {op.type} · Taxa {Number(op.exchangeRate).toFixed(4)}</p>
               <StatusBadge value={op.status} />
             </div>
-            <p>Jogo: {Number(op.amountGameCurrency).toFixed(2)} | Plataforma: R$ {Number(op.amountPlatformCurrency).toFixed(2)}</p>
+            <p className="break-words">Jogo: {Number(op.amountGameCurrency).toFixed(2)} | Plataforma: R$ {Number(op.amountPlatformCurrency).toFixed(2)}</p>
             <p>Prazo: {new Date(op.expiresAt).toLocaleString('pt-BR')}</p>
             {op.status === 'PENDING' && (
               <div className="grid md:grid-cols-2 gap-2 mt-2">
@@ -28,6 +28,7 @@ export default async function CollaboratorPage() {
             )}
           </div>
         ))}
+        {operations.length === 0 && <p className="text-sm text-slate-400">Sem operações pendentes no momento.</p>}
       </div>
     </section>
   );
