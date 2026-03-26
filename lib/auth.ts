@@ -11,13 +11,13 @@ function hashToken(token: string) {
   return createHash('sha256').update(token).digest('hex');
 }
 
-export function isValidSessionCookieFormat(token?: string) {
+export function isValidSessionCookieFormat(token?: string): token is string {
   return Boolean(token && /^[a-f0-9]{64}$/i.test(token));
 }
 
 export async function createSession(userId: string) {
   const token = randomBytes(32).toString('hex');
-  const hashedToken = hashToken(token as string);
+  const hashedToken = hashToken(token);
   const expiresAt = new Date(Date.now() + THIRTY_DAYS * 1000);
 
   await prisma.$transaction([
@@ -37,7 +37,7 @@ export async function createSession(userId: string) {
 export async function destroySession() {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
-  if (token && isValidSessionCookieFormat(token)) {
+  if (isValidSessionCookieFormat(token)) {
     await prisma.session.deleteMany({ where: { token: hashToken(token) } });
   }
   cookieStore.delete(SESSION_COOKIE);
@@ -51,7 +51,7 @@ export async function getCurrentUser() {
     return null;
   }
 
-  const hashedToken = hashToken(token as string);
+  const hashedToken = hashToken(token);
   const session = await prisma.session.findUnique({ where: { token: hashedToken }, include: { user: true } });
 
   if (!session) {

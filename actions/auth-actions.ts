@@ -12,6 +12,10 @@ import { Prisma } from '@prisma/client';
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_LOCK_MINUTES = 15;
+const MAX_IP_ATTEMPTS = 20;
+const IP_WINDOW_MINUTES = 15;
+const GENERIC_LOGIN_ERROR = 'Credenciais inválidas.';
+const GENERIC_RATE_LIMIT_ERROR = 'Não foi possível autenticar no momento. Tente novamente em alguns minutos.';
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
@@ -32,6 +36,41 @@ function getValidationErrorMessage(error: { issues: Array<{ message: string }> }
 async function getClientIp() {
   const h = await headers();
   return h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip') ?? 'unknown';
+}
+
+async function checkIpThrottle(ip: string) {
+  const throttle = await prisma.loginThrottle.findUnique({ where: { ip } });
+  if (!throttle) return false;
+  return Boolean(throttle.blockedUntil && throttle.blockedUntil > new Date());
+}
+
+async function recordIpFailure(ip: string) {
+  const now = new Date();
+  const throttle = await prisma.loginThrottle.findUnique({ where: { ip } });
+
+  if (!throttle) {
+    await prisma.loginThrottle.create({ data: { ip, failedAttempts: 1 } });
+    return;
+  }
+
+  const inWindow = now.getTime() - throttle.updatedAt.getTime() <= IP_WINDOW_MINUTES * 60 * 1000;
+  const nextAttempts = inWindow ? throttle.failedAttempts + 1 : 1;
+
+  await prisma.loginThrottle.update({
+    where: { ip },
+    data: {
+      failedAttempts: nextAttempts,
+      blockedUntil: nextAttempts >= MAX_IP_ATTEMPTS ? new Date(now.getTime() + IP_WINDOW_MINUTES * 60 * 1000) : null,
+    },
+  });
+}
+
+async function clearIpFailures(ip: string) {
+  await prisma.loginThrottle.upsert({
+    where: { ip },
+    create: { ip, failedAttempts: 0, blockedUntil: null },
+    update: { failedAttempts: 0, blockedUntil: null },
+  });
 }
 
 export async function registerAction(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -73,9 +112,18 @@ export async function registerAction(_: ActionState, formData: FormData): Promis
 }
 
 export async function loginAction(_: ActionState, formData: FormData): Promise<ActionState> {
+  const ip = await getClientIp();
+
   try {
+    if (await checkIpThrottle(ip)) {
+      return { error: GENERIC_RATE_LIMIT_ERROR };
+    }
+
     const parsed = loginSchema.safeParse(Object.fromEntries(formData));
-    if (!parsed.success) return { error: getValidationErrorMessage(parsed.error) };
+    if (!parsed.success) {
+      await recordIpFailure(ip);
+      return { error: getValidationErrorMessage(parsed.error) };
+    }
 
     const identifier = normalizeIdentifier(parsed.data.identifier);
     const user = await prisma.user.findFirst({
@@ -84,10 +132,14 @@ export async function loginAction(_: ActionState, formData: FormData): Promise<A
       },
     });
 
-    if (!user) return { error: 'Credenciais inválidas.' };
+    if (!user) {
+      await recordIpFailure(ip);
+      return { error: GENERIC_LOGIN_ERROR };
+    }
 
     if (user.lockedUntil && user.lockedUntil > new Date()) {
-      return { error: `Conta temporariamente bloqueada. Tente novamente após ${user.lockedUntil.toLocaleTimeString('pt-BR')}.` };
+      await recordIpFailure(ip);
+      return { error: GENERIC_RATE_LIMIT_ERROR };
     }
 
     const valid = await compare(parsed.data.password, user.passwordHash);
@@ -105,18 +157,20 @@ export async function loginAction(_: ActionState, formData: FormData): Promise<A
         },
       });
 
+      await recordIpFailure(ip);
       await writeAuditLog({
         actorId: user.id,
         action: 'LOGIN_FAILED',
         entityType: 'User',
         entityId: user.id,
-        metadata: { ip: await getClientIp(), remainingAttempts: Math.max(0, MAX_LOGIN_ATTEMPTS - nextAttempts) },
+        metadata: { ip, remainingAttempts: Math.max(0, MAX_LOGIN_ATTEMPTS - nextAttempts) },
       });
-      return { error: 'Credenciais inválidas.' };
+      return { error: GENERIC_LOGIN_ERROR };
     }
 
     await prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lockedUntil: null } });
-    await writeAuditLog({ actorId: user.id, action: 'LOGIN', entityType: 'User', entityId: user.id, metadata: { ip: await getClientIp() } });
+    await clearIpFailures(ip);
+    await writeAuditLog({ actorId: user.id, action: 'LOGIN', entityType: 'User', entityId: user.id, metadata: { ip } });
     await createSession(user.id);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2022') {

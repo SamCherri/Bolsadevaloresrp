@@ -2,14 +2,13 @@ import { z } from 'zod';
 
 const tickerRegex = /^[A-Z0-9]{3,8}$/;
 const safeTextRegex = /^[\p{L}\p{N}\s.,:;!?()'"\-_/]+$/u;
+const decimalStringRegex = /^\d+(?:[.,]\d{1,6})?$/;
 
-const moneyString = z
+const decimalInput = z
   .string()
   .trim()
-  .regex(/^\d+(?:[.,]\d{1,6})?$/, 'Valor numérico inválido')
-  .transform((value) => Number(value.replace(',', '.')));
-
-const positiveMoney = z.union([z.number(), moneyString]).pipe(z.number().finite().positive());
+  .regex(decimalStringRegex, 'Valor numérico inválido')
+  .transform((value) => value.replace(',', '.'));
 
 export const registerSchema = z.object({
   name: z.string().trim().min(3).max(80),
@@ -34,10 +33,10 @@ export const assetRequestSchema = z.object({
   name: z.string().trim().min(2).max(120).regex(safeTextRegex),
   ticker: z.string().trim().toUpperCase().regex(tickerRegex),
   description: z.string().trim().min(10).max(800),
-  initialPrice: positiveMoney,
+  initialPrice: decimalInput,
   quantity: z.coerce.number().int().positive().max(10_000_000),
-  feePercent: z.coerce.number().min(0).max(100),
-  reservePercent: z.coerce.number().min(0).max(100),
+  feePercent: decimalInput,
+  reservePercent: decimalInput,
   fundPurpose: z.string().trim().min(5).max(200),
 });
 
@@ -49,6 +48,6 @@ export const orderSchema = z.object({
 
 export const exchangeSchema = z.object({
   type: z.enum(['DEPOSIT', 'WITHDRAW']),
-  amountGameCurrency: positiveMoney,
-  exchangeRate: positiveMoney,
+  amountGameCurrency: decimalInput,
+  exchangeRate: decimalInput,
 });

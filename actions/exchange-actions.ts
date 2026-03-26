@@ -171,6 +171,20 @@ export async function processExchangeOperationAction(operationId: string, approv
 }
 
 
+
+export async function runExchangeExpirationAction(): Promise<ActionState> {
+  try {
+    await requireRole([UserRole.COLLABORATOR, UserRole.ADMIN]);
+    const expiredCount = await expirePendingExchangeOperations();
+    revalidatePath('/collaborator');
+    revalidatePath('/exchange');
+    revalidatePath('/dashboard');
+    return { success: `Rotina executada. Operações expiradas: ${expiredCount}.` };
+  } catch {
+    return { error: 'Falha ao executar rotina de expiração.' };
+  }
+}
+
 export async function createExchangeOperationFormAction(_: ActionState, formData: FormData): Promise<ActionState> {
   return createExchangeOperationAction(formData);
 }

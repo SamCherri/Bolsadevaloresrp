@@ -20,6 +20,7 @@ async function main() {
   await prisma.asset.deleteMany();
   await prisma.wallet.deleteMany();
   await prisma.session.deleteMany();
+  await prisma.loginThrottle.deleteMany();
   await prisma.user.deleteMany();
 
   const [adminPw, collabPw, issuerPw, investorPw] = await Promise.all([
@@ -58,7 +59,8 @@ async function main() {
     const close = base + (Math.random() - 0.5) * 0.6;
     const high = Math.max(open, close) + Math.random() * 0.4;
     const low = Math.min(open, close) - Math.random() * 0.4;
-    await prisma.candle.create({ data: { assetId: assets[0].id, timeframe: CandleTimeframe.M1, timestamp: new Date(Date.now() - (120 - i) * 60_000), open, high, low, close, volume: 200 + Math.random() * 150 } });
+    const volumeQty = Math.floor(200 + Math.random() * 150);
+    await prisma.candle.create({ data: { assetId: assets[0].id, timeframe: CandleTimeframe.M1, timestamp: new Date(Date.now() - (120 - i) * 60_000), open, high, low, close, volume: volumeQty } });
   }
 
   await prisma.auditLog.createMany({ data: [

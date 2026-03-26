@@ -85,6 +85,18 @@ model Session {
   @@index([expiresAt])
 }
 
+
+model LoginThrottle {
+  id             String   @id @default(cuid())
+  ip             String   @unique
+  failedAttempts Int      @default(0)
+  blockedUntil   DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([blockedUntil])
+}
+
 model Wallet {
   id              String   @id @default(cuid())
   userId          String   @unique
@@ -195,7 +207,7 @@ model Candle {
   high        Decimal         @db.Decimal(18, 4)
   low         Decimal         @db.Decimal(18, 4)
   close       Decimal         @db.Decimal(18, 4)
-  volume      Decimal         @db.Decimal(18, 4)
+  volume      Decimal         @db.Decimal(18, 4) // quantidade negociada no intervalo
 
   @@unique([assetId, timeframe, timestamp])
 }

@@ -33,12 +33,17 @@ MVP de exchange RP com **dois fluxos econômicos separados**:
 
 ## Candles
 - O gráfico usa candles M1 persistidos.
+- Semântica padrão: `candle.volume` = **quantidade negociada** (não valor financeiro).
 - Para múltiplos trades no mesmo minuto:
   - `open` = primeiro preço do minuto
   - `high` = maior preço do minuto
   - `low` = menor preço do minuto
   - `close` = último preço do minuto
-  - `volume` = soma do volume negociado no minuto
+  - `volume` = soma da quantidade negociada no minuto
+
+## PWA (instalável)
+- App possui `manifest.webmanifest`, ícones e service worker básico para instalação em celular.
+- Suporte offline completo **não** está implementado neste MVP (SW apenas base instalável).
 
 ## Stack
 - Next.js 15 (App Router + Server Actions)
@@ -48,16 +53,23 @@ MVP de exchange RP com **dois fluxos econômicos separados**:
 - TailwindCSS
 - lightweight-charts
 
-## Setup
+## Setup (projeto já com migrations versionadas)
 ```bash
 npm install
 npm run prisma:generate
-npm run db:push
-# após atualizar o projeto, rode migration
 npm run db:migrate
 npm run db:seed
 npm run dev
 ```
+
+## Fluxo de banco recomendado
+- **Ambiente normal/equipe/produção**: use `npm run db:migrate`.
+- **`db:push`**: apenas para prototipação local rápida sem versionamento formal de migration.
+
+## Rotina de expiração de câmbio (cron-ready)
+- Endpoint: `POST /api/cron/expire-exchange`
+- Header obrigatório: `Authorization: Bearer <CRON_SECRET>`
+- Finalidade: expirar `ExchangeOperation` pendente vencida sem side-effect em leitura.
 
 ## Auditoria técnica contínua
 ```bash
@@ -75,6 +87,7 @@ npm run audit:full
 
 ## Deploy Railway
 - Configure `DATABASE_URL` no serviço.
+- Configure também `CRON_SECRET` para rotina de expiração.
 - Build: `npm run build`
 - Start: `npm run start`
 - Deploy migration: `npm run db:migrate`

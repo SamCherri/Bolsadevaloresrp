@@ -4,7 +4,7 @@ import { requireRole } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { assetRequestSchema } from '@/lib/validation';
 import { AssetStatus, Prisma, UserRole } from '@prisma/client';
-import { money } from '@/lib/money';
+import { decimal, money } from '@/lib/money';
 import { revalidatePath } from 'next/cache';
 import { writeAuditLog } from '@/domain/audit';
 import { ActionState } from '@/types/action-state';
@@ -29,8 +29,8 @@ export async function createAssetRequestAction(_: ActionState, formData: FormDat
         currentPrice: money(parsed.data.initialPrice),
         totalSupply: parsed.data.quantity,
         circulatingSupply: 0,
-        feePercent: parsed.data.feePercent,
-        reservePercent: parsed.data.reservePercent,
+        feePercent: decimal(parsed.data.feePercent),
+        reservePercent: decimal(parsed.data.reservePercent),
         fundPurpose: parsed.data.fundPurpose.trim(),
         status: AssetStatus.PENDING_APPROVAL,
         approvals: { create: {} },

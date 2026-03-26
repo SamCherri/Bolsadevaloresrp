@@ -123,7 +123,7 @@ export async function createOrderAction(_: ActionState, formData: FormData): Pro
               high: maxDecimal(currentCandle.high, nextPrice),
               low: minDecimal(currentCandle.low, nextPrice),
               close: nextPrice,
-              volume: money(currentCandle.volume.add(qty)),
+              volume: decimal(currentCandle.volume.add(qty)),
             },
           });
         }
@@ -131,7 +131,7 @@ export async function createOrderAction(_: ActionState, formData: FormData): Pro
         await tx.auditLog.createMany({ data: [
           { actorId: user.id, action: 'ORDER_BUY_CREATED', entityType: 'Order' },
           { actorId: user.id, action: 'ORDER_BUY_EXECUTED', entityType: 'Order' },
-          { actorId: user.id, action: 'WALLET_ADJUSTED', entityType: 'Wallet', entityId: wallet.id, metadata: { delta: totalValue.toString() } },
+          { actorId: user.id, action: 'WALLET_ADJUSTED', entityType: 'Wallet', entityId: wallet.id, metadata: { delta: totalValue.negated().toString() } },
           { actorId: user.id, action: 'ASSET_RESERVE_ALLOCATED', entityType: 'Asset', entityId: asset.id, metadata: { reserveAmount: reserveAmount.toString() } },
         ]});
       } else {
@@ -199,7 +199,7 @@ export async function createOrderAction(_: ActionState, formData: FormData): Pro
               high: maxDecimal(currentCandle.high, nextPrice),
               low: minDecimal(currentCandle.low, nextPrice),
               close: nextPrice,
-              volume: money(currentCandle.volume.add(qty)),
+              volume: decimal(currentCandle.volume.add(qty)),
             },
           });
         }

@@ -7,6 +7,8 @@ export async function expirePendingExchangeOperations() {
     where: { status: 'PENDING', expiresAt: { lt: now } },
   });
 
+  let expiredCount = 0;
+
   for (const op of ops) {
     await prisma.$transaction(async (tx) => {
       const current = await tx.exchangeOperation.findUnique({ where: { id: op.id } });
@@ -46,6 +48,10 @@ export async function expirePendingExchangeOperations() {
           entityId: current.id,
         },
       });
+
+      expiredCount += 1;
     });
   }
+
+  return expiredCount;
 }
