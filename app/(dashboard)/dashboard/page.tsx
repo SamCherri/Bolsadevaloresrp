@@ -1,19 +1,20 @@
 import { requireUser } from '@/lib/auth';
 import { getDashboardData } from '@/services/dashboard-service';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { Prisma } from '@prisma/client';
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const data = await getDashboardData(user.id);
-  const holdingsValue = data.wallet?.holdings.reduce((acc, h) => acc + Number(h.asset.currentPrice) * h.quantity, 0) ?? 0;
+  const data = await getDashboardData(user.id, user.role);
+  const holdingsValue = data.wallet?.holdings.reduce((acc, h) => acc.add(h.asset.currentPrice.mul(h.quantity)), new Prisma.Decimal(0)) ?? new Prisma.Decimal(0);
 
   return (
     <div className="space-y-6">
       <section className="grid md:grid-cols-4 gap-4">
         <div className="card"><p className="text-sm text-slate-400">Saldo universal disponível</p><p className="text-2xl font-bold">R$ {Number(data.wallet?.balance ?? 0).toFixed(2)}</p></div>
         <div className="card"><p className="text-sm text-slate-400">Saldo reservado (saques)</p><p className="text-2xl font-bold">R$ {Number(data.wallet?.reservedBalance ?? 0).toFixed(2)}</p></div>
-        <div className="card"><p className="text-sm text-slate-400">Valor em ações</p><p className="text-2xl font-bold">R$ {holdingsValue.toFixed(2)}</p></div>
-        <div className="card"><p className="text-sm text-slate-400">Câmbios pendentes</p><p className="text-2xl font-bold">{data.pendingExchange}</p></div>
+        <div className="card"><p className="text-sm text-slate-400">Valor em ações</p><p className="text-2xl font-bold">R$ {Number(holdingsValue).toFixed(2)}</p></div>
+        <div className="card"><p className="text-sm text-slate-400">{data.isGlobalPendingMetric ? 'Câmbios pendentes (globais)' : 'Seus câmbios pendentes'}</p><p className="text-2xl font-bold">{data.pendingExchange}</p></div>
       </section>
 
       <section className="card">

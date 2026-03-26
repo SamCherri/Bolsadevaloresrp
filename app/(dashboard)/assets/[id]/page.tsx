@@ -2,8 +2,11 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { CandlestickChart } from '@/components/charts/candlestick-chart';
 import { OrderForm } from '@/components/forms/order-form';
+import { requireRole } from '@/lib/auth';
+import { UserRole } from '@prisma/client';
 
 export default async function AssetDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireRole([UserRole.INVESTOR, UserRole.ISSUER, UserRole.ADMIN]);
   const { id } = await params;
   const asset = await prisma.asset.findUnique({
     where: { id },
@@ -25,7 +28,6 @@ export default async function AssetDetailsPage({ params }: { params: Promise<{ i
       <section className="card">
         <h2 className="text-2xl font-bold">{asset.ticker} - {asset.name}</h2>
         <p className="text-slate-300 mt-2">{asset.description}</p>
-        <p className="text-xs text-warning mt-2">No MVP, candles podem conter dados demonstrativos seedados e atualização simplificada por trade.</p>
         <div className="grid md:grid-cols-3 gap-3 mt-4 text-sm">
           <p>Emissor: {asset.issuer.username}</p>
           <p>Preço atual: R$ {Number(asset.currentPrice).toFixed(2)}</p>

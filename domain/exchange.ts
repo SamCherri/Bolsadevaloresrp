@@ -12,7 +12,7 @@ export async function expirePendingExchangeOperations() {
       const current = await tx.exchangeOperation.findUnique({ where: { id: op.id } });
       if (!current || current.status !== 'PENDING') return;
 
-      if (current.type === 'WITHDRAW' && Number(current.reservedAmount) > 0) {
+      if (current.type === 'WITHDRAW' && current.reservedAmount.greaterThan(0)) {
         const walletUpdated = await tx.wallet.updateMany({
           where: { id: current.walletId, reservedBalance: { gte: current.reservedAmount } },
           data: {

@@ -15,9 +15,19 @@ export async function updateUserRoleAction(_: ActionState, formData: FormData): 
     if (!userId) return { error: 'Usuário inválido.' };
     if (!['INVESTOR', 'ISSUER', 'COLLABORATOR', 'ADMIN'].includes(role)) return { error: 'Role inválida.' };
 
+    const target = await prisma.user.findUnique({ where: { id: userId } });
+    if (!target) return { error: 'Usuário não encontrado.' };
+
+    if (target.role === UserRole.ADMIN && role !== UserRole.ADMIN) {
+      const totalAdmins = await prisma.user.count({ where: { role: UserRole.ADMIN } });
+      if (totalAdmins <= 1) {
+        return { error: 'Não é permitido remover o último ADMIN do sistema.' };
+      }
+    }
+
     await prisma.user.update({ where: { id: userId }, data: { role } });
     await prisma.auditLog.create({
-      data: { actorId: admin.id, action: 'ROLE_CHANGED', entityType: 'User', entityId: userId, metadata: { role } },
+      data: { actorId: admin.id, action: 'ROLE_CHANGED', entityType: 'User', entityId: userId, metadata: { from: target.role, to: role } },
     });
     revalidatePath('/admin');
     return { success: 'Role atualizada.' };

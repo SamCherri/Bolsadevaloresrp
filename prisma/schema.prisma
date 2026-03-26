@@ -58,6 +58,8 @@ model User {
   email        String   @unique
   passwordHash String
   role         UserRole @default(INVESTOR)
+  failedLoginAttempts Int @default(0)
+  lockedUntil  DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -78,6 +80,9 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Wallet {
@@ -117,6 +122,9 @@ model Asset {
   holdings  Holding[]
   trades    Trade[]
   candles   Candle[]
+
+  @@index([status, updatedAt])
+  @@index([status, currentPrice])
 }
 
 model AssetApproval {
@@ -173,6 +181,8 @@ model Trade {
   price      Decimal  @db.Decimal(18, 4)
   value      Decimal  @db.Decimal(18, 4)
   createdAt  DateTime @default(now())
+
+  @@index([assetId, createdAt(sort: Desc)])
 }
 
 model Candle {
@@ -210,6 +220,11 @@ model ExchangeOperation {
   notes                  String?
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status, expiresAt])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([walletId, status])
 }
 
 model AuditLog {
@@ -221,4 +236,8 @@ model AuditLog {
   entityId   String?
   metadata   Json?
   createdAt  DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@index([actorId, createdAt(sort: Desc)])
+  @@index([entityType, entityId, createdAt(sort: Desc)])
 }

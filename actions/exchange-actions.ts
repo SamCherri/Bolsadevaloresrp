@@ -7,6 +7,7 @@ import { ExchangeStatus, ExchangeType, UserRole } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { expirePendingExchangeOperations } from '@/domain/exchange';
 import { ActionState } from '@/types/action-state';
+import { money, rate } from '@/lib/money';
 
 export async function createExchangeOperationAction(formData: FormData): Promise<ActionState> {
   try {
@@ -17,7 +18,9 @@ export async function createExchangeOperationAction(formData: FormData): Promise
     const wallet = await prisma.wallet.findUnique({ where: { userId: user.id } });
     if (!wallet) return { error: 'Carteira não encontrada.' };
 
-    const platformAmount = parsed.data.amountGameCurrency * parsed.data.exchangeRate;
+    const amountGameCurrency = money(parsed.data.amountGameCurrency);
+    const exchangeRate = rate(parsed.data.exchangeRate);
+    const platformAmount = money(amountGameCurrency.mul(exchangeRate));
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
     await prisma.$transaction(async (tx) => {
@@ -37,10 +40,10 @@ export async function createExchangeOperationAction(formData: FormData): Promise
           type: parsed.data.type,
           userId: user.id,
           walletId: wallet.id,
-          amountGameCurrency: parsed.data.amountGameCurrency,
+          amountGameCurrency,
           amountPlatformCurrency: platformAmount,
-          exchangeRate: parsed.data.exchangeRate,
-          reservedAmount: parsed.data.type === ExchangeType.WITHDRAW ? platformAmount : 0,
+          exchangeRate,
+          reservedAmount: parsed.data.type === ExchangeType.WITHDRAW ? platformAmount : money(0),
           status: ExchangeStatus.PENDING,
           expiresAt,
         },
@@ -77,7 +80,7 @@ export async function processExchangeOperationAction(operationId: string, approv
       if (!op || op.status !== 'PENDING') throw new Error('Operação não encontrada ou já processada.');
 
       if (op.expiresAt < new Date()) {
-        if (op.type === ExchangeType.WITHDRAW && Number(op.reservedAmount) > 0) {
+        if (op.type === ExchangeType.WITHDRAW && op.reservedAmount.greaterThan(0)) {
           const walletUpdated = await tx.wallet.updateMany({
             where: { id: op.walletId, reservedBalance: { gte: op.reservedAmount } },
             data: { reservedBalance: { decrement: op.reservedAmount }, balance: { increment: op.reservedAmount } },
@@ -119,12 +122,12 @@ export async function processExchangeOperationAction(operationId: string, approv
           },
         });
         await tx.auditLog.create({
-          data: { actorId: collaborator.id, action: 'WALLET_ADJUSTED', entityType: 'Wallet', entityId: op.walletId, metadata: { amount: Number(op.amountPlatformCurrency), type: op.type } },
+          data: { actorId: collaborator.id, action: 'WALLET_ADJUSTED', entityType: 'Wallet', entityId: op.walletId, metadata: { amount: op.amountPlatformCurrency.toString(), type: op.type } },
         });
         return;
       }
 
-      if (op.type === ExchangeType.WITHDRAW && Number(op.reservedAmount) > 0) {
+      if (op.type === ExchangeType.WITHDRAW && op.reservedAmount.greaterThan(0)) {
         const walletUpdated = await tx.wallet.updateMany({
           where: { id: op.walletId, reservedBalance: { gte: op.reservedAmount } },
           data: {

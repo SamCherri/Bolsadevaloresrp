@@ -1,7 +1,10 @@
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
+import { requireRole } from '@/lib/auth';
+import { UserRole } from '@prisma/client';
 
 export default async function AssetsPage() {
+  await requireRole([UserRole.INVESTOR, UserRole.ISSUER, UserRole.ADMIN]);
   const assets = await prisma.asset.findMany({ include: { issuer: true }, orderBy: { createdAt: 'desc' } });
 
   return (

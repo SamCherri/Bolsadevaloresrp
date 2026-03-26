@@ -4,6 +4,7 @@ import { requireRole } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { assetRequestSchema } from '@/lib/validation';
 import { AssetStatus, Prisma, UserRole } from '@prisma/client';
+import { money } from '@/lib/money';
 import { revalidatePath } from 'next/cache';
 import { writeAuditLog } from '@/domain/audit';
 import { ActionState } from '@/types/action-state';
@@ -24,8 +25,8 @@ export async function createAssetRequestAction(_: ActionState, formData: FormDat
         name: parsed.data.name.trim(),
         description: parsed.data.description.trim(),
         issuerId: user.id,
-        initialPrice: parsed.data.initialPrice,
-        currentPrice: parsed.data.initialPrice,
+        initialPrice: money(parsed.data.initialPrice),
+        currentPrice: money(parsed.data.initialPrice),
         totalSupply: parsed.data.quantity,
         circulatingSupply: 0,
         feePercent: parsed.data.feePercent,

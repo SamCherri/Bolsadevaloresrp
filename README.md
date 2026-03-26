@@ -14,22 +14,31 @@ MVP de exchange RP com **dois fluxos econômicos separados**:
 ### Câmbio manual (com colaborador)
 - **Depósito**: usuário cria operação, entrega moeda do jogo, colaborador aprova, sistema credita `wallet.balance`.
 - **Saque**: usuário cria operação, sistema move saldo de `balance` para `reservedBalance`, colaborador aprova/rejeita.
-  - aprovado: debita definitivo do reservado.
-  - rejeitado/expirado: estorna reservado para `balance`.
+  - aprovado: débito definitivo do reservado.
+  - rejeitado/expirado: estorno do reservado para `balance`.
 
 ### Mercado de ações interno (automático)
 - **BUY**: valida ativo ACTIVE, saldo e supply disponível, debita `wallet.balance`, credita holding, cria `order` e `trade`.
-- **SELL**: valida holding, reduz/remover holding, credita `wallet.balance`, cria `order` e `trade`.
+- **SELL**: valida holding, reduz/remove holding, credita `wallet.balance`, cria `order` e `trade`.
 - Colaborador **não participa** do fluxo de ordens de ações.
 
-## Regras de supply adotadas no MVP
-- `circulatingSupply` sobe em BUY e desce em SELL.
-- BUY não pode ultrapassar `totalSupply`.
-- Interpretação MVP: plataforma atua como contraparte simplificada/market maker interno.
+### Regra econômica da reserva
+- `asset.reserveFundValue` representa **alocação contábil** de parte do valor de compra (`reservePercent`) já debitado do comprador.
+- Não é criação monetária: o valor da reserva sempre nasce de uma execução BUY já liquidada.
+- SELL não aumenta reserva automaticamente.
+
+## Regras de autorização
+- Negociação de ativos (market/assets/ordens BUY/SELL) permitida apenas para: `INVESTOR`, `ISSUER`, `ADMIN`.
+- `COLLABORATOR` fica restrito ao fluxo de câmbio manual e não negocia ativos.
 
 ## Candles
 - O gráfico usa candles M1 persistidos.
-- MVP com atualização simplificada: há dados seedados e trades reais; a agregação completa de candles por trade/timeframe ainda é parcial.
+- Para múltiplos trades no mesmo minuto:
+  - `open` = primeiro preço do minuto
+  - `high` = maior preço do minuto
+  - `low` = menor preço do minuto
+  - `close` = último preço do minuto
+  - `volume` = soma do volume negociado no minuto
 
 ## Stack
 - Next.js 15 (App Router + Server Actions)
@@ -44,6 +53,8 @@ MVP de exchange RP com **dois fluxos econômicos separados**:
 npm install
 npm run prisma:generate
 npm run db:push
+# após atualizar o projeto, rode migration
+npm run db:migrate
 npm run db:seed
 npm run dev
 ```
@@ -57,13 +68,10 @@ npm run smoke:journeys
 npm run audit:full
 ```
 
-Documentação de apoio:
-- `docs/ai/technical-audit-checklist.md`
-- `docs/ai/auth-security-checklist.md`
-- `docs/ai/ui-responsiveness-checklist.md`
-- `docs/ai/business-flow-checklist.md`
-- `docs/ai/smoke-test-scenarios.md`
-- `docs/ai/delivery-evidence-protocol.md`
+## Seed de desenvolvimento
+- O seed é apenas para desenvolvimento local.
+- Configure `SEED_DEMO_PASSWORD` (ou `SEED_ADMIN_PASSWORD`, etc.) antes de rodar seed.
+- Sem env, a senha padrão `ChangeMe!123` é aplicada somente para ambiente demo/local.
 
 ## Deploy Railway
 - Configure `DATABASE_URL` no serviço.
@@ -71,12 +79,6 @@ Documentação de apoio:
 - Start: `npm run start`
 - Deploy migration: `npm run db:migrate`
 - Primeiro bootstrap opcional: `npm run db:seed`
-
-## Usuários seed
-- Admin: `admin@bvrp.com` / `Admin@1234`
-- Collaborator: `collab@bvrp.com` / `Collab@1234`
-- Issuer: `issuer@bvrp.com` / `Issuer@1234`
-- Investor: `investor@bvrp.com` / `Investor@1234`
 
 ## Escopo incluído no MVP
 - Auth com sessão segura

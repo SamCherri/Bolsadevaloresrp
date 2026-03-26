@@ -2,8 +2,8 @@
 
 import { prisma } from '@/lib/prisma';
 import { orderSchema } from '@/lib/validation';
-import { requireUser } from '@/lib/auth';
-import { OrderStatus, OrderType } from '@prisma/client';
+import { requireRole } from '@/lib/auth';
+import { OrderStatus, OrderType, Prisma, UserRole } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { ActionState } from '@/types/action-state';
 import {
@@ -12,9 +12,14 @@ import {
   validateBuyOrder,
   validateSellOrder,
 } from '@/domain/trading-rules';
+import { decimal, maxDecimal, minDecimal, money } from '@/lib/money';
+
+const TRADING_ROLES: UserRole[] = [UserRole.INVESTOR, UserRole.ISSUER, UserRole.ADMIN];
+const BUY_MULTIPLIER = new Prisma.Decimal('1.002');
+const SELL_MULTIPLIER = new Prisma.Decimal('0.998');
 
 export async function createOrderAction(_: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();
+  const user = await requireRole(TRADING_ROLES);
   const parsed = orderSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: 'Ordem inválida.' };
 
@@ -32,11 +37,11 @@ export async function createOrderAction(_: ActionState, formData: FormData): Pro
       if (!freshAsset || freshAsset.status !== 'ACTIVE') throw new Error('Ativo indisponível.');
       const freshWallet = await tx.wallet.findUnique({ where: { id: wallet.id } });
       if (!freshWallet) throw new Error('Carteira não encontrada.');
-      const unitPrice = Number(freshAsset.currentPrice);
+
       const { totalValue, reserveAmount } = calculateOrderTotals({
         quantity: qty,
-        unitPrice,
-        reservePercent: Number(freshAsset.reservePercent),
+        unitPrice: freshAsset.currentPrice,
+        reservePercent: freshAsset.reservePercent,
       });
       const candleTimestamp = getCurrentMinuteBucket();
 
@@ -45,8 +50,8 @@ export async function createOrderAction(_: ActionState, formData: FormData): Pro
         const buyValidation = validateBuyOrder({
           availableSupply,
           quantity: qty,
-          walletBalance: Number(freshWallet.balance),
-          unitPrice,
+          walletBalance: freshWallet.balance,
+          unitPrice: freshAsset.currentPrice,
         });
         if ('error' in buyValidation) throw new Error(buyValidation.error);
 
@@ -58,7 +63,9 @@ export async function createOrderAction(_: ActionState, formData: FormData): Pro
 
         const holding = await tx.holding.findUnique({ where: { walletId_assetId: { walletId: wallet.id, assetId: asset.id } } });
         const newQty = (holding?.quantity ?? 0) + qty;
-        const avg = holding ? ((Number(holding.averagePrice) * holding.quantity) + totalValue) / newQty : Number(freshAsset.currentPrice);
+        const avg = holding
+          ? money(holding.averagePrice.mul(holding.quantity).add(totalValue).div(newQty))
+          : freshAsset.currentPrice;
 
         await tx.holding.upsert({
           where: { walletId_assetId: { walletId: wallet.id, assetId: asset.id } },
@@ -81,39 +88,51 @@ export async function createOrderAction(_: ActionState, formData: FormData): Pro
 
         await tx.trade.create({ data: { assetId: asset.id, orderId: order.id, quantity: qty, price: freshAsset.currentPrice, value: totalValue } });
 
+        const nextPrice = money(freshAsset.currentPrice.mul(BUY_MULTIPLIER));
         await tx.asset.update({
           where: { id: asset.id },
           data: {
             circulatingSupply: { increment: qty },
-            currentPrice: unitPrice * 1.002,
+            currentPrice: nextPrice,
+            // Regra econômica: reserveFundValue representa parte do valor pago em BUY
+            // realocada para reserva contábil do ativo (não é criação monetária).
             reserveFundValue: { increment: reserveAmount },
           },
         });
 
-        await tx.candle.upsert({
+        const currentCandle = await tx.candle.findUnique({
           where: { assetId_timeframe_timestamp: { assetId: asset.id, timeframe: 'M1', timestamp: candleTimestamp } },
-          update: {
-            high: { set: Math.max(unitPrice, unitPrice * 1.002) },
-            low: { set: unitPrice },
-            close: unitPrice * 1.002,
-            volume: { increment: totalValue },
-          },
-          create: {
-            assetId: asset.id,
-            timeframe: 'M1',
-            timestamp: candleTimestamp,
-            open: freshAsset.currentPrice,
-            high: unitPrice * 1.002,
-            low: freshAsset.currentPrice,
-            close: unitPrice * 1.002,
-            volume: totalValue,
-          },
         });
+        if (!currentCandle) {
+          await tx.candle.create({
+            data: {
+              assetId: asset.id,
+              timeframe: 'M1',
+              timestamp: candleTimestamp,
+              open: freshAsset.currentPrice,
+              high: maxDecimal(freshAsset.currentPrice, nextPrice),
+              low: minDecimal(freshAsset.currentPrice, nextPrice),
+              close: nextPrice,
+              volume: decimal(qty),
+            },
+          });
+        } else {
+          await tx.candle.update({
+            where: { id: currentCandle.id },
+            data: {
+              high: maxDecimal(currentCandle.high, nextPrice),
+              low: minDecimal(currentCandle.low, nextPrice),
+              close: nextPrice,
+              volume: money(currentCandle.volume.add(qty)),
+            },
+          });
+        }
 
         await tx.auditLog.createMany({ data: [
           { actorId: user.id, action: 'ORDER_BUY_CREATED', entityType: 'Order' },
           { actorId: user.id, action: 'ORDER_BUY_EXECUTED', entityType: 'Order' },
-          { actorId: user.id, action: 'WALLET_ADJUSTED', entityType: 'Wallet', entityId: wallet.id, metadata: { delta: -totalValue } },
+          { actorId: user.id, action: 'WALLET_ADJUSTED', entityType: 'Wallet', entityId: wallet.id, metadata: { delta: totalValue.toString() } },
+          { actorId: user.id, action: 'ASSET_RESERVE_ALLOCATED', entityType: 'Asset', entityId: asset.id, metadata: { reserveAmount: reserveAmount.toString() } },
         ]});
       } else {
         const holding = await tx.holding.findUnique({ where: { walletId_assetId: { walletId: wallet.id, assetId: asset.id } } });
@@ -148,38 +167,47 @@ export async function createOrderAction(_: ActionState, formData: FormData): Pro
 
         await tx.trade.create({ data: { assetId: asset.id, orderId: order.id, quantity: qty, price: freshAsset.currentPrice, value: totalValue } });
 
+        const nextPrice = money(freshAsset.currentPrice.mul(SELL_MULTIPLIER));
         await tx.asset.update({
           where: { id: asset.id },
           data: {
             circulatingSupply: { decrement: qty },
-            currentPrice: unitPrice * 0.998,
+            currentPrice: nextPrice,
           },
         });
 
-        await tx.candle.upsert({
+        const currentCandle = await tx.candle.findUnique({
           where: { assetId_timeframe_timestamp: { assetId: asset.id, timeframe: 'M1', timestamp: candleTimestamp } },
-          update: {
-            high: { set: unitPrice },
-            low: { set: Math.min(unitPrice, unitPrice * 0.998) },
-            close: unitPrice * 0.998,
-            volume: { increment: totalValue },
-          },
-          create: {
-            assetId: asset.id,
-            timeframe: 'M1',
-            timestamp: candleTimestamp,
-            open: freshAsset.currentPrice,
-            high: freshAsset.currentPrice,
-            low: unitPrice * 0.998,
-            close: unitPrice * 0.998,
-            volume: totalValue,
-          },
         });
+        if (!currentCandle) {
+          await tx.candle.create({
+            data: {
+              assetId: asset.id,
+              timeframe: 'M1',
+              timestamp: candleTimestamp,
+              open: freshAsset.currentPrice,
+              high: maxDecimal(freshAsset.currentPrice, nextPrice),
+              low: minDecimal(freshAsset.currentPrice, nextPrice),
+              close: nextPrice,
+              volume: decimal(qty),
+            },
+          });
+        } else {
+          await tx.candle.update({
+            where: { id: currentCandle.id },
+            data: {
+              high: maxDecimal(currentCandle.high, nextPrice),
+              low: minDecimal(currentCandle.low, nextPrice),
+              close: nextPrice,
+              volume: money(currentCandle.volume.add(qty)),
+            },
+          });
+        }
 
         await tx.auditLog.createMany({ data: [
           { actorId: user.id, action: 'ORDER_SELL_CREATED', entityType: 'Order' },
           { actorId: user.id, action: 'ORDER_SELL_EXECUTED', entityType: 'Order' },
-          { actorId: user.id, action: 'WALLET_ADJUSTED', entityType: 'Wallet', entityId: wallet.id, metadata: { delta: totalValue } },
+          { actorId: user.id, action: 'WALLET_ADJUSTED', entityType: 'Wallet', entityId: wallet.id, metadata: { delta: totalValue.toString() } },
         ]});
       }
     });

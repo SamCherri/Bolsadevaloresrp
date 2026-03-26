@@ -1,8 +1,11 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { requireRole } from '@/lib/auth';
+import { UserRole } from '@prisma/client';
 
 export default async function MarketPage() {
+  await requireRole([UserRole.INVESTOR, UserRole.ISSUER, UserRole.ADMIN]);
   const assets = await prisma.asset.findMany({ where: { status: 'ACTIVE' }, orderBy: { updatedAt: 'desc' } });
 
   return (
