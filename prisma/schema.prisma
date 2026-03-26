@@ -1,13 +1,55 @@
-generator client { provider = "prisma-client-js" }
-datasource db { provider = "postgresql"; url = env("DATABASE_URL") }
+generator client {
+  provider = "prisma-client-js"
+}
 
-enum UserRole { INVESTOR ISSUER COLLABORATOR ADMIN }
-enum AssetStatus { DRAFT PENDING_APPROVAL ACTIVE FROZEN REJECTED }
-enum OrderType { BUY SELL }
-enum OrderStatus { EXECUTED REJECTED CANCELLED }
-enum CandleTimeframe { M1 M5 H1 }
-enum ExchangeType { DEPOSIT WITHDRAW }
-enum ExchangeStatus { PENDING APPROVED REJECTED EXPIRED }
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  INVESTOR
+  ISSUER
+  COLLABORATOR
+  ADMIN
+}
+
+enum AssetStatus {
+  DRAFT
+  PENDING_APPROVAL
+  ACTIVE
+  FROZEN
+  REJECTED
+}
+
+enum OrderType {
+  BUY
+  SELL
+}
+
+enum OrderStatus {
+  EXECUTED
+  REJECTED
+  CANCELLED
+}
+
+enum CandleTimeframe {
+  M1
+  M5
+  H1
+}
+
+enum ExchangeType {
+  DEPOSIT
+  WITHDRAW
+}
+
+enum ExchangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
 
 model User {
   id           String   @id @default(cuid())
@@ -46,6 +88,7 @@ model Wallet {
   reservedBalance Decimal  @default(0) @db.Decimal(18, 4)
   holdings        Holding[]
   orders          Order[]
+  exchangeOps     ExchangeOperation[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
