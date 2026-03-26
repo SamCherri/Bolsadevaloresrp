@@ -18,22 +18,20 @@ export function Sidebar({ role }: { role: UserRole }) {
       <aside className="hidden md:block md:w-64 bg-card border-r border-border p-4 space-y-2">
         <h1 className="text-xl font-bold mb-4">Bolsa de Valores RP</h1>
         {links.map(({ href, label, icon: Icon }) => (
-          <Link key={href} href={href} className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted text-sm">
+          <Link key={href} href={href} className="flex items-center gap-2 p-3 rounded-lg hover:bg-muted text-sm min-h-11">
             <Icon size={16} />{label}
           </Link>
         ))}
       </aside>
-      <aside className="md:hidden bg-card border-b border-border p-3">
-        <details>
-          <summary className="cursor-pointer text-sm font-semibold">Menu</summary>
-          <nav className="mt-3 grid grid-cols-2 gap-2">
-            {links.map(({ href, label, icon: Icon }) => (
-              <Link key={href} href={href} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 hover:bg-muted text-xs">
-                <Icon size={14} />{label}
-              </Link>
-            ))}
-          </nav>
-        </details>
+
+      <aside className="md:hidden bg-card border-b border-border p-2 sticky top-0 z-30">
+        <nav className="flex gap-2 overflow-x-auto pb-1">
+          {links.map(({ href, label, icon: Icon }) => (
+            <Link key={href} href={href} className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 text-xs min-h-11">
+              <Icon size={14} />{label}
+            </Link>
+          ))}
+        </nav>
       </aside>
     </>
   );

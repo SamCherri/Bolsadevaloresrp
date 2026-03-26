@@ -7,12 +7,14 @@ export async function expirePendingExchangeOperations() {
     where: { status: 'PENDING', expiresAt: { lt: now } },
   });
 
+  let expiredCount = 0;
+
   for (const op of ops) {
     await prisma.$transaction(async (tx) => {
       const current = await tx.exchangeOperation.findUnique({ where: { id: op.id } });
       if (!current || current.status !== 'PENDING') return;
 
-      if (current.type === 'WITHDRAW' && Number(current.reservedAmount) > 0) {
+      if (current.type === 'WITHDRAW' && current.reservedAmount.greaterThan(0)) {
         const walletUpdated = await tx.wallet.updateMany({
           where: { id: current.walletId, reservedBalance: { gte: current.reservedAmount } },
           data: {
@@ -46,6 +48,10 @@ export async function expirePendingExchangeOperations() {
           entityId: current.id,
         },
       });
+
+      expiredCount += 1;
     });
   }
+
+  return expiredCount;
 }

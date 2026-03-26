@@ -16,6 +16,7 @@ export function RegisterForm() {
       <input className="input" name="username" placeholder="Username" required />
       <input className="input" type="email" name="email" placeholder="Email" required />
       <input className="input" type="password" name="password" placeholder="Senha" required />
+      <p className="text-xs text-slate-400">Senha mínima: 10 caracteres com maiúscula, minúscula, número e símbolo.</p>
       <FormStateMessage state={state} />
       <FormSubmitButton label="Cadastrar" pendingLabel="Cadastrando..." />
     </form>

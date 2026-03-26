@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { Prisma } from '@prisma/client';
 import { calculateOrderTotals, validateBuyOrder, validateSellOrder } from '@/domain/trading-rules';
 
 test('validateBuyOrder rejeita supply insuficiente', () => {
-  const result = validateBuyOrder({ availableSupply: 5, quantity: 10, walletBalance: 1000, unitPrice: 10 });
+  const result = validateBuyOrder({ availableSupply: 5, quantity: 10, walletBalance: new Prisma.Decimal(1000), unitPrice: new Prisma.Decimal(10) });
   assert.equal('error' in result, true);
   if ('error' in result) {
     assert.ok(result.error);
@@ -12,7 +13,7 @@ test('validateBuyOrder rejeita supply insuficiente', () => {
 });
 
 test('validateBuyOrder rejeita saldo insuficiente', () => {
-  const result = validateBuyOrder({ availableSupply: 100, quantity: 10, walletBalance: 50, unitPrice: 10 });
+  const result = validateBuyOrder({ availableSupply: 100, quantity: 10, walletBalance: new Prisma.Decimal(50), unitPrice: new Prisma.Decimal(10) });
   assert.equal('error' in result, true);
   if ('error' in result) {
     assert.ok(result.error);
@@ -39,7 +40,7 @@ test('validateSellOrder rejeita inconsistência de supply', () => {
 });
 
 test('calculateOrderTotals retorna total e reserva com precisão controlada', () => {
-  const result = calculateOrderTotals({ quantity: 3, unitPrice: 10.1555, reservePercent: 15 });
-  assert.equal(result.totalValue, 30.4665);
-  assert.equal(result.reserveAmount, 4.57);
+  const result = calculateOrderTotals({ quantity: 3, unitPrice: new Prisma.Decimal('10.1555'), reservePercent: new Prisma.Decimal(15) });
+  assert.equal(result.totalValue.toString(), '30.4665');
+  assert.equal(result.reserveAmount.toString(), '4.57');
 });

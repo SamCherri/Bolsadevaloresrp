@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { calculateOrderTotals, validateBuyOrder, validateSellOrder } from '@/domain/trading-rules';
 
 type Scenario = { name: string; run: () => void };
@@ -13,14 +14,14 @@ const scenarios: Scenario[] = [
   {
     name: 'compra bloqueada por saldo insuficiente',
     run: () => {
-      const result = validateBuyOrder({ availableSupply: 100, quantity: 20, walletBalance: 150, unitPrice: 10 });
+      const result = validateBuyOrder({ availableSupply: 100, quantity: 20, walletBalance: new Prisma.Decimal(150), unitPrice: new Prisma.Decimal(10) });
       if (!('error' in result)) throw new Error('Compra deveria falhar por saldo insuficiente');
     },
   },
   {
     name: 'compra bloqueada por supply insuficiente',
     run: () => {
-      const result = validateBuyOrder({ availableSupply: 2, quantity: 5, walletBalance: 1000, unitPrice: 10 });
+      const result = validateBuyOrder({ availableSupply: 2, quantity: 5, walletBalance: new Prisma.Decimal(1000), unitPrice: new Prisma.Decimal(10) });
       if (!('error' in result)) throw new Error('Compra deveria falhar por supply insuficiente');
     },
   },
@@ -41,8 +42,8 @@ const scenarios: Scenario[] = [
   {
     name: 'totais da ordem calculados com reserva',
     run: () => {
-      const totals = calculateOrderTotals({ quantity: 4, unitPrice: 12.5, reservePercent: 10 });
-      if (totals.totalValue !== 50 || totals.reserveAmount !== 5) {
+      const totals = calculateOrderTotals({ quantity: 4, unitPrice: new Prisma.Decimal('12.5'), reservePercent: new Prisma.Decimal(10) });
+      if (!totals.totalValue.equals('50.0000') || !totals.reserveAmount.equals('5.0000')) {
         throw new Error('Cálculo de total/reserva inconsistente');
       }
     },

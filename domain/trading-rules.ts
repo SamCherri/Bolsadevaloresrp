@@ -1,8 +1,11 @@
+import { Prisma } from '@prisma/client';
+import { money, percentToFactor } from '@/lib/money';
+
 type BuyValidationInput = {
   availableSupply: number;
   quantity: number;
-  walletBalance: number;
-  unitPrice: number;
+  walletBalance: Prisma.Decimal;
+  unitPrice: Prisma.Decimal;
 };
 
 type SellValidationInput = {
@@ -15,9 +18,10 @@ export function getCurrentMinuteBucket(date = new Date()) {
   return new Date(Math.floor(date.getTime() / 60000) * 60000);
 }
 
-export function calculateOrderTotals(input: { quantity: number; unitPrice: number; reservePercent: number }) {
-  const totalValue = Number((input.quantity * input.unitPrice).toFixed(4));
-  const reserveAmount = Number((totalValue * (input.reservePercent / 100)).toFixed(4));
+export function calculateOrderTotals(input: { quantity: number; unitPrice: Prisma.Decimal; reservePercent: Prisma.Decimal }) {
+  const quantity = new Prisma.Decimal(input.quantity);
+  const totalValue = money(quantity.mul(input.unitPrice));
+  const reserveAmount = money(totalValue.mul(percentToFactor(input.reservePercent)));
   return { totalValue, reserveAmount };
 }
 
@@ -26,8 +30,8 @@ export function validateBuyOrder(input: BuyValidationInput) {
     return { error: 'Sem supply disponível para compra.' };
   }
 
-  const totalValue = input.quantity * input.unitPrice;
-  if (input.walletBalance < totalValue) {
+  const totalValue = input.unitPrice.mul(input.quantity);
+  if (input.walletBalance.lessThan(totalValue)) {
     return { error: 'Saldo insuficiente.' };
   }
 
