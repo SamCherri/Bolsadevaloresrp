@@ -69,6 +69,7 @@ export async function createExchangeOperationAction(formData: FormData): Promise
 export async function processExchangeOperationAction(operationId: string, approve: boolean, notes?: string): Promise<ActionState> {
   try {
     const collaborator = await requireRole([UserRole.COLLABORATOR, UserRole.ADMIN]);
+    if (!operationId) return { error: 'Operação inválida.' };
     await expirePendingExchangeOperations();
 
     await prisma.$transaction(async (tx) => {
@@ -77,10 +78,11 @@ export async function processExchangeOperationAction(operationId: string, approv
 
       if (op.expiresAt < new Date()) {
         if (op.type === ExchangeType.WITHDRAW && Number(op.reservedAmount) > 0) {
-          await tx.wallet.update({
-            where: { id: op.walletId },
+          const walletUpdated = await tx.wallet.updateMany({
+            where: { id: op.walletId, reservedBalance: { gte: op.reservedAmount } },
             data: { reservedBalance: { decrement: op.reservedAmount }, balance: { increment: op.reservedAmount } },
           });
+          if (walletUpdated.count === 0) throw new Error('Saldo reservado inconsistente para expiração.');
         }
         await tx.exchangeOperation.update({
           where: { id: op.id },
@@ -96,7 +98,11 @@ export async function processExchangeOperationAction(operationId: string, approv
         if (op.type === ExchangeType.DEPOSIT) {
           await tx.wallet.update({ where: { id: op.walletId }, data: { balance: { increment: op.amountPlatformCurrency } } });
         } else {
-          await tx.wallet.update({ where: { id: op.walletId }, data: { reservedBalance: { decrement: op.reservedAmount } } });
+          const walletUpdated = await tx.wallet.updateMany({
+            where: { id: op.walletId, reservedBalance: { gte: op.reservedAmount } },
+            data: { reservedBalance: { decrement: op.reservedAmount } },
+          });
+          if (walletUpdated.count === 0) throw new Error('Saldo reservado inconsistente para aprovação.');
         }
 
         await tx.exchangeOperation.update({
@@ -119,13 +125,14 @@ export async function processExchangeOperationAction(operationId: string, approv
       }
 
       if (op.type === ExchangeType.WITHDRAW && Number(op.reservedAmount) > 0) {
-        await tx.wallet.update({
-          where: { id: op.walletId },
+        const walletUpdated = await tx.wallet.updateMany({
+          where: { id: op.walletId, reservedBalance: { gte: op.reservedAmount } },
           data: {
             reservedBalance: { decrement: op.reservedAmount },
             balance: { increment: op.reservedAmount },
           },
         });
+        if (walletUpdated.count === 0) throw new Error('Saldo reservado inconsistente para rejeição.');
       }
 
       await tx.exchangeOperation.update({

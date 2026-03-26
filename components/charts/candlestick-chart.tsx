@@ -12,14 +12,18 @@ export function CandlestickChart({ data }: { data: CandlestickData[] }) {
       layout: { background: { type: ColorType.Solid, color: '#111827' }, textColor: '#E5E7EB' },
       grid: { vertLines: { color: '#243041' }, horzLines: { color: '#243041' } },
       width: ref.current.clientWidth,
-      height: 340,
+      height: window.innerWidth < 640 ? 260 : 340,
       timeScale: { timeVisible: true, secondsVisible: false },
     });
 
     const series = chart.addCandlestickSeries();
     series.setData(data);
 
-    const resize = () => chart.applyOptions({ width: ref.current?.clientWidth ?? 500 });
+    const resize = () =>
+      chart.applyOptions({
+        width: ref.current?.clientWidth ?? 500,
+        height: window.innerWidth < 640 ? 260 : 340,
+      });
     window.addEventListener('resize', resize);
 
     return () => {
@@ -28,5 +32,5 @@ export function CandlestickChart({ data }: { data: CandlestickData[] }) {
     };
   }, [data]);
 
-  return <div className="card" ref={ref} />;
+  return <div className="card overflow-x-auto" ref={ref} />;
 }

@@ -6,6 +6,12 @@ import { requireUser } from '@/lib/auth';
 import { OrderStatus, OrderType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { ActionState } from '@/types/action-state';
+import {
+  calculateOrderTotals,
+  getCurrentMinuteBucket,
+  validateBuyOrder,
+  validateSellOrder,
+} from '@/domain/trading-rules';
 
 export async function createOrderAction(_: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
@@ -19,17 +25,30 @@ export async function createOrderAction(_: ActionState, formData: FormData): Pro
   if (!wallet) return { error: 'Carteira não encontrada.' };
 
   const qty = parsed.data.quantity;
-  const totalValue = Number(asset.currentPrice) * qty;
-  const reserveAmount = totalValue * (Number(asset.reservePercent) / 100);
 
   try {
     await prisma.$transaction(async (tx) => {
       const freshAsset = await tx.asset.findUnique({ where: { id: asset.id } });
       if (!freshAsset || freshAsset.status !== 'ACTIVE') throw new Error('Ativo indisponível.');
+      const freshWallet = await tx.wallet.findUnique({ where: { id: wallet.id } });
+      if (!freshWallet) throw new Error('Carteira não encontrada.');
+      const unitPrice = Number(freshAsset.currentPrice);
+      const { totalValue, reserveAmount } = calculateOrderTotals({
+        quantity: qty,
+        unitPrice,
+        reservePercent: Number(freshAsset.reservePercent),
+      });
+      const candleTimestamp = getCurrentMinuteBucket();
 
       if (parsed.data.type === OrderType.BUY) {
         const availableSupply = freshAsset.totalSupply - freshAsset.circulatingSupply;
-        if (availableSupply < qty) throw new Error('Sem supply disponível para compra.');
+        const buyValidation = validateBuyOrder({
+          availableSupply,
+          quantity: qty,
+          walletBalance: Number(freshWallet.balance),
+          unitPrice,
+        });
+        if ('error' in buyValidation) throw new Error(buyValidation.error);
 
         const walletUpdated = await tx.wallet.updateMany({
           where: { id: wallet.id, balance: { gte: totalValue } },
@@ -66,27 +85,27 @@ export async function createOrderAction(_: ActionState, formData: FormData): Pro
           where: { id: asset.id },
           data: {
             circulatingSupply: { increment: qty },
-            currentPrice: Number(freshAsset.currentPrice) * 1.002,
+            currentPrice: unitPrice * 1.002,
             reserveFundValue: { increment: reserveAmount },
           },
         });
 
         await tx.candle.upsert({
-          where: { assetId_timeframe_timestamp: { assetId: asset.id, timeframe: 'M1', timestamp: new Date(Math.floor(Date.now()/60000)*60000) } },
+          where: { assetId_timeframe_timestamp: { assetId: asset.id, timeframe: 'M1', timestamp: candleTimestamp } },
           update: {
-            high: { set: Math.max(Number(freshAsset.currentPrice), Number(freshAsset.currentPrice) * 1.002) },
-            low: { set: Number(freshAsset.currentPrice) },
-            close: Number(freshAsset.currentPrice) * 1.002,
+            high: { set: Math.max(unitPrice, unitPrice * 1.002) },
+            low: { set: unitPrice },
+            close: unitPrice * 1.002,
             volume: { increment: totalValue },
           },
           create: {
             assetId: asset.id,
             timeframe: 'M1',
-            timestamp: new Date(Math.floor(Date.now()/60000)*60000),
+            timestamp: candleTimestamp,
             open: freshAsset.currentPrice,
-            high: Number(freshAsset.currentPrice) * 1.002,
+            high: unitPrice * 1.002,
             low: freshAsset.currentPrice,
-            close: Number(freshAsset.currentPrice) * 1.002,
+            close: unitPrice * 1.002,
             volume: totalValue,
           },
         });
@@ -98,9 +117,14 @@ export async function createOrderAction(_: ActionState, formData: FormData): Pro
         ]});
       } else {
         const holding = await tx.holding.findUnique({ where: { walletId_assetId: { walletId: wallet.id, assetId: asset.id } } });
-        if (!holding || holding.quantity < qty) throw new Error('Holding insuficiente para venda.');
+        const sellValidation = validateSellOrder({
+          holdingQuantity: holding?.quantity ?? 0,
+          quantity: qty,
+          circulatingSupply: freshAsset.circulatingSupply,
+        });
+        if ('error' in sellValidation) throw new Error(sellValidation.error);
 
-        const remaining = holding.quantity - qty;
+        const remaining = (holding?.quantity ?? 0) - qty;
         if (remaining === 0) {
           await tx.holding.delete({ where: { walletId_assetId: { walletId: wallet.id, assetId: asset.id } } });
         } else {
@@ -128,26 +152,26 @@ export async function createOrderAction(_: ActionState, formData: FormData): Pro
           where: { id: asset.id },
           data: {
             circulatingSupply: { decrement: qty },
-            currentPrice: Number(freshAsset.currentPrice) * 0.998,
+            currentPrice: unitPrice * 0.998,
           },
         });
 
         await tx.candle.upsert({
-          where: { assetId_timeframe_timestamp: { assetId: asset.id, timeframe: 'M1', timestamp: new Date(Math.floor(Date.now()/60000)*60000) } },
+          where: { assetId_timeframe_timestamp: { assetId: asset.id, timeframe: 'M1', timestamp: candleTimestamp } },
           update: {
-            high: { set: Number(freshAsset.currentPrice) },
-            low: { set: Math.min(Number(freshAsset.currentPrice), Number(freshAsset.currentPrice) * 0.998) },
-            close: Number(freshAsset.currentPrice) * 0.998,
+            high: { set: unitPrice },
+            low: { set: Math.min(unitPrice, unitPrice * 0.998) },
+            close: unitPrice * 0.998,
             volume: { increment: totalValue },
           },
           create: {
             assetId: asset.id,
             timeframe: 'M1',
-            timestamp: new Date(Math.floor(Date.now()/60000)*60000),
+            timestamp: candleTimestamp,
             open: freshAsset.currentPrice,
             high: freshAsset.currentPrice,
-            low: Number(freshAsset.currentPrice) * 0.998,
-            close: Number(freshAsset.currentPrice) * 0.998,
+            low: unitPrice * 0.998,
+            close: unitPrice * 0.998,
             volume: totalValue,
           },
         });

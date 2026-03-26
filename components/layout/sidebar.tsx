@@ -14,13 +14,27 @@ export function Sidebar({ role }: { role: UserRole }) {
   ].filter((l) => l.roles.includes(role));
 
   return (
-    <aside className="w-full md:w-64 bg-card border-r border-border p-4 space-y-2">
-      <h1 className="text-xl font-bold mb-4">Bolsa de Valores RP</h1>
-      {links.map(({ href, label, icon: Icon }) => (
-        <Link key={href} href={href} className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted text-sm">
-          <Icon size={16} />{label}
-        </Link>
-      ))}
-    </aside>
+    <>
+      <aside className="hidden md:block md:w-64 bg-card border-r border-border p-4 space-y-2">
+        <h1 className="text-xl font-bold mb-4">Bolsa de Valores RP</h1>
+        {links.map(({ href, label, icon: Icon }) => (
+          <Link key={href} href={href} className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted text-sm">
+            <Icon size={16} />{label}
+          </Link>
+        ))}
+      </aside>
+      <aside className="md:hidden bg-card border-b border-border p-3">
+        <details>
+          <summary className="cursor-pointer text-sm font-semibold">Menu</summary>
+          <nav className="mt-3 grid grid-cols-2 gap-2">
+            {links.map(({ href, label, icon: Icon }) => (
+              <Link key={href} href={href} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 hover:bg-muted text-xs">
+                <Icon size={14} />{label}
+              </Link>
+            ))}
+          </nav>
+        </details>
+      </aside>
+    </>
   );
 }

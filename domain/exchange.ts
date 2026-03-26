@@ -13,13 +13,24 @@ export async function expirePendingExchangeOperations() {
       if (!current || current.status !== 'PENDING') return;
 
       if (current.type === 'WITHDRAW' && Number(current.reservedAmount) > 0) {
-        await tx.wallet.update({
-          where: { id: current.walletId },
+        const walletUpdated = await tx.wallet.updateMany({
+          where: { id: current.walletId, reservedBalance: { gte: current.reservedAmount } },
           data: {
             reservedBalance: { decrement: current.reservedAmount },
             balance: { increment: current.reservedAmount },
           },
         });
+        if (walletUpdated.count === 0) {
+          await tx.auditLog.create({
+            data: {
+              actorId: current.userId,
+              action: 'EXCHANGE_WITHDRAW_EXPIRE_INCONSISTENT_RESERVE',
+              entityType: 'ExchangeOperation',
+              entityId: current.id,
+            },
+          });
+          return;
+        }
       }
 
       await tx.exchangeOperation.update({
