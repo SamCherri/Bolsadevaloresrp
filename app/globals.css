@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body { @apply bg-bg text-slate-100 antialiased; }
+.card { @apply bg-card border border-border rounded-xl p-4; }
+.input { @apply w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm; }
+.btn { @apply px-4 py-2 rounded-lg text-sm font-medium; }
+.btn-primary { @apply btn bg-info text-white hover:opacity-90; }
+.btn-danger { @apply btn bg-danger text-white; }
+.badge { @apply px-2 py-1 rounded-full text-xs font-semibold; }

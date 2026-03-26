@@ -1,0 +1,28 @@
+import { requireUser } from '@/lib/auth';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { getUserExchangeOperations } from '@/services/exchange-service';
+import { ExchangeOperationForm } from '@/components/forms/exchange-operation-form';
+
+export default async function ExchangePage() {
+  const user = await requireUser();
+  const operations = await getUserExchangeOperations(user.id, 20);
+
+  return (
+    <div className="space-y-4">
+      <section className="grid md:grid-cols-2 gap-4">
+        <ExchangeOperationForm type="DEPOSIT" />
+        <ExchangeOperationForm type="WITHDRAW" />
+      </section>
+
+      <section className="card">
+        <h3 className="font-semibold mb-2">Histórico de câmbio</h3>
+        {operations.map((op) => (
+          <div key={op.id} className="flex justify-between border-b border-border py-2 text-sm">
+            <span>{op.type} · jogo {Number(op.amountGameCurrency).toFixed(2)} · plataforma R$ {Number(op.amountPlatformCurrency).toFixed(2)}</span>
+            <StatusBadge value={op.status} />
+          </div>
+        ))}
+      </section>
+    </div>
+  );
+}
