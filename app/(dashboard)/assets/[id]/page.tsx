@@ -47,9 +47,12 @@ export default async function AssetDetailsPage({ params }: { params: Promise<{ i
 
       <section className="card">
         <h3 className="font-semibold mb-2">Histórico de trades</h3>
-        {asset.trades.map((trade) => (
-          <div key={trade.id} className="text-sm border-b border-border py-1">{trade.quantity} cotas @ R$ {Number(trade.price).toFixed(2)} · {new Date(trade.createdAt).toLocaleString('pt-BR')}</div>
-        ))}
+        <div className="space-y-1">
+          {asset.trades.map((trade) => (
+            <div key={trade.id} className="text-sm border-b border-border py-1 break-words">{trade.quantity} cotas @ R$ {Number(trade.price).toFixed(2)} · {new Date(trade.createdAt).toLocaleString('pt-BR')}</div>
+          ))}
+          {asset.trades.length === 0 && <p className="text-sm text-slate-400">Sem trades executados para este ativo.</p>}
+        </div>
       </section>
     </div>
   );

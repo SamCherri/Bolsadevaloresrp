@@ -8,8 +8,8 @@ export default async function MarketPage() {
   return (
     <section className="card">
       <h2 className="font-semibold mb-4">Mercado de ações interno</h2>
-      <div className="overflow-auto">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] text-sm">
           <thead><tr className="text-left text-slate-400"><th>Ticker</th><th>Nome</th><th>Preço</th><th>Supply circ.</th><th>Status</th><th></th></tr></thead>
           <tbody>
             {assets.map((asset) => (
@@ -22,6 +22,7 @@ export default async function MarketPage() {
           </tbody>
         </table>
       </div>
+      {assets.length === 0 && <p className="text-sm text-slate-400 mt-3">Sem ativos ativos no momento.</p>}
     </section>
   );
 }

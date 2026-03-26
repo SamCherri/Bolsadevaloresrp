@@ -12,10 +12,10 @@ export function AdminUserRoleForm({ userId, username, email, currentRole }: { us
   return (
     <form action={formAction} className="border-b border-border py-2 space-y-2">
       <input type="hidden" name="userId" value={userId} />
-      <div className="flex items-center justify-between">
-        <span>{username} ({email})</span>
-        <div className="flex items-center gap-2">
-          <select defaultValue={currentRole} name="role" className="input !w-auto">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <span className="break-words">{username} ({email})</span>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <select defaultValue={currentRole} name="role" className="input sm:!w-auto">
             <option value="INVESTOR">INVESTOR</option>
             <option value="ISSUER">ISSUER</option>
             <option value="COLLABORATOR">COLLABORATOR</option>

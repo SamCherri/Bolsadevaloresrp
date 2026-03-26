@@ -48,6 +48,23 @@ npm run db:seed
 npm run dev
 ```
 
+## Auditoria técnica contínua
+```bash
+npm run typecheck
+npm run lint
+npm run test:smoke
+npm run smoke:journeys
+npm run audit:full
+```
+
+Documentação de apoio:
+- `docs/ai/technical-audit-checklist.md`
+- `docs/ai/auth-security-checklist.md`
+- `docs/ai/ui-responsiveness-checklist.md`
+- `docs/ai/business-flow-checklist.md`
+- `docs/ai/smoke-test-scenarios.md`
+- `docs/ai/delivery-evidence-protocol.md`
+
 ## Deploy Railway
 - Configure `DATABASE_URL` no serviço.
 - Build: `npm run build`

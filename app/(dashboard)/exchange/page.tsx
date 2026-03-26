@@ -17,11 +17,12 @@ export default async function ExchangePage() {
       <section className="card">
         <h3 className="font-semibold mb-2">Histórico de câmbio</h3>
         {operations.map((op) => (
-          <div key={op.id} className="flex justify-between border-b border-border py-2 text-sm">
-            <span>{op.type} · jogo {Number(op.amountGameCurrency).toFixed(2)} · plataforma R$ {Number(op.amountPlatformCurrency).toFixed(2)}</span>
+          <div key={op.id} className="flex flex-col gap-2 sm:flex-row sm:justify-between border-b border-border py-2 text-sm">
+            <span className="break-words">{op.type} · jogo {Number(op.amountGameCurrency).toFixed(2)} · plataforma R$ {Number(op.amountPlatformCurrency).toFixed(2)}</span>
             <StatusBadge value={op.status} />
           </div>
         ))}
+        {operations.length === 0 && <p className="text-sm text-slate-400">Nenhuma operação de câmbio registrada.</p>}
       </section>
     </div>
   );
