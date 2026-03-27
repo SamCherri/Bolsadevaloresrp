@@ -14,8 +14,8 @@ export function ExchangeOperationForm({ type }: { type: 'DEPOSIT' | 'WITHDRAW' }
     <form action={formAction} className="card space-y-3">
       <h3 className="font-semibold">{title}</h3>
       <input type="hidden" name="type" value={type} />
-      <input className="input" name="amountGameCurrency" type="number" step="0.01" placeholder="Valor em moeda do jogo" required />
-      <input className="input" name="exchangeRate" type="number" step="0.0001" placeholder="Taxa de conversão" required />
+      <input className="input" name="amountGameCurrency" type="text" inputMode="decimal" placeholder="Valor em moeda do jogo" required />
+      <input className="input" name="exchangeRate" type="text" inputMode="decimal" placeholder="Taxa de conversão" required />
       <FormStateMessage state={state} />
       <FormSubmitButton label={type === 'DEPOSIT' ? 'Criar depósito' : 'Criar saque'} pendingLabel="Processando..." />
     </form>

@@ -3,6 +3,12 @@ import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
+function getSeedPassword(role: string) {
+  const shared = process.env.SEED_DEMO_PASSWORD;
+  const specific = process.env[`SEED_${role}_PASSWORD`];
+  return specific || shared || 'ChangeMe!123';
+}
+
 async function main() {
   await prisma.auditLog.deleteMany();
   await prisma.candle.deleteMany();
@@ -14,16 +20,17 @@ async function main() {
   await prisma.asset.deleteMany();
   await prisma.wallet.deleteMany();
   await prisma.session.deleteMany();
+  await prisma.loginThrottle.deleteMany();
   await prisma.user.deleteMany();
 
   const [adminPw, collabPw, issuerPw, investorPw] = await Promise.all([
-    hash('Admin@1234', 12), hash('Collab@1234', 12), hash('Issuer@1234', 12), hash('Investor@1234', 12),
+    hash(getSeedPassword('ADMIN'), 12), hash(getSeedPassword('COLLABORATOR'), 12), hash(getSeedPassword('ISSUER'), 12), hash(getSeedPassword('INVESTOR'), 12),
   ]);
 
-  const admin = await prisma.user.create({ data: { name: 'Admin RP', username: 'adminrp', email: 'admin@bvrp.com', passwordHash: adminPw, role: UserRole.ADMIN, wallet: { create: { balance: 20000 } } } });
-  const collaborator = await prisma.user.create({ data: { name: 'Colaborador RP', username: 'collabrp', email: 'collab@bvrp.com', passwordHash: collabPw, role: UserRole.COLLABORATOR, wallet: { create: { balance: 5000 } } } });
-  const issuer = await prisma.user.create({ data: { name: 'Emissor RP', username: 'issuerrp', email: 'issuer@bvrp.com', passwordHash: issuerPw, role: UserRole.ISSUER, wallet: { create: { balance: 8000 } } } });
-  const investor = await prisma.user.create({ data: { name: 'Investidor RP', username: 'investorrp', email: 'investor@bvrp.com', passwordHash: investorPw, role: UserRole.INVESTOR, wallet: { create: { balance: 15000 } } } });
+  const admin = await prisma.user.create({ data: { name: 'Admin RP', username: 'adminrp', email: 'admin@bvrp.local', passwordHash: adminPw, role: UserRole.ADMIN, wallet: { create: { balance: 20000 } } } });
+  const collaborator = await prisma.user.create({ data: { name: 'Colaborador RP', username: 'collabrp', email: 'collab@bvrp.local', passwordHash: collabPw, role: UserRole.COLLABORATOR, wallet: { create: { balance: 5000 } } } });
+  const issuer = await prisma.user.create({ data: { name: 'Emissor RP', username: 'issuerrp', email: 'issuer@bvrp.local', passwordHash: issuerPw, role: UserRole.ISSUER, wallet: { create: { balance: 8000 } } } });
+  const investor = await prisma.user.create({ data: { name: 'Investidor RP', username: 'investorrp', email: 'investor@bvrp.local', passwordHash: investorPw, role: UserRole.INVESTOR, wallet: { create: { balance: 15000 } } } });
 
   const assets = await Promise.all([
     prisma.asset.create({ data: { ticker: 'LSCN', name: 'Los Santos Construções', description: 'Construtora RP focada em imóveis de luxo.', issuerId: issuer.id, initialPrice: 12.5, currentPrice: 15.2, totalSupply: 150000, circulatingSupply: 50000, feePercent: 2.5, reservePercent: 8, reserveFundValue: 12000, fundPurpose: 'Expansão imobiliária', status: AssetStatus.ACTIVE } }),
@@ -52,13 +59,16 @@ async function main() {
     const close = base + (Math.random() - 0.5) * 0.6;
     const high = Math.max(open, close) + Math.random() * 0.4;
     const low = Math.min(open, close) - Math.random() * 0.4;
-    await prisma.candle.create({ data: { assetId: assets[0].id, timeframe: CandleTimeframe.M1, timestamp: new Date(Date.now() - (120 - i) * 60_000), open, high, low, close, volume: 200 + Math.random() * 150 } });
+    const volumeQty = Math.floor(200 + Math.random() * 150);
+    await prisma.candle.create({ data: { assetId: assets[0].id, timeframe: CandleTimeframe.M1, timestamp: new Date(Date.now() - (120 - i) * 60_000), open, high, low, close, volume: volumeQty } });
   }
 
   await prisma.auditLog.createMany({ data: [
     { actorId: admin.id, action: 'SEED_INIT', entityType: 'System' },
     { actorId: investor.id, action: 'ORDER_BUY_EXECUTED', entityType: 'Order', entityId: buyOrder.id },
   ] });
+
+  console.log('Seed concluído para ambiente de desenvolvimento. Defina SEED_DEMO_PASSWORD para trocar senha padrão.');
 }
 
 main().finally(() => prisma.$disconnect());

@@ -1,9 +1,7 @@
 import { prisma } from '@/lib/prisma';
-import { expirePendingExchangeOperations } from '@/domain/exchange';
+import { UserRole } from '@prisma/client';
 
-export async function getDashboardData(userId: string) {
-  await expirePendingExchangeOperations();
-
+export async function getDashboardData(userId: string, role: UserRole) {
   const wallet = await prisma.wallet.findUnique({
     where: { userId },
     include: {
@@ -19,7 +17,9 @@ export async function getDashboardData(userId: string) {
     take: 5,
   });
 
-  const pendingExchange = await prisma.exchangeOperation.count({ where: { status: 'PENDING' } });
+  const pendingExchange = (role === UserRole.ADMIN || role === UserRole.COLLABORATOR)
+    ? await prisma.exchangeOperation.count({ where: { status: 'PENDING', expiresAt: { gte: new Date() } } })
+    : await prisma.exchangeOperation.count({ where: { status: 'PENDING', userId, expiresAt: { gte: new Date() } } });
 
-  return { wallet, highlightedAssets, pendingExchange };
+  return { wallet, highlightedAssets, pendingExchange, isGlobalPendingMetric: role === UserRole.ADMIN || role === UserRole.COLLABORATOR };
 }

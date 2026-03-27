@@ -16,16 +16,18 @@ export default async function AdminPage() {
     <div className="space-y-6">
       <section className="card">
         <h2 className="text-xl font-semibold mb-3">Aprovação de ativos</h2>
-        {pendingAssets.map((asset) => (
-          <div key={asset.id} className="border border-border rounded-lg p-3 mb-2 space-y-2">
-            <p className="break-words">{asset.ticker} - {asset.name} ({asset.issuer.username})</p>
-            <div className="grid md:grid-cols-3 gap-2">
-              <AdminAssetDecisionForm assetId={asset.id} mode="approve" />
-              <AdminAssetDecisionForm assetId={asset.id} mode="reject" />
-              <AdminAssetDecisionForm assetId={asset.id} mode="freeze" />
+        <div className="space-y-3">
+          {pendingAssets.map((asset) => (
+            <div key={asset.id} className="border border-border rounded-lg p-3 space-y-2">
+              <p className="break-words">{asset.ticker} - {asset.name} ({asset.issuer.username})</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <AdminAssetDecisionForm assetId={asset.id} mode="approve" />
+                <AdminAssetDecisionForm assetId={asset.id} mode="reject" />
+                <AdminAssetDecisionForm assetId={asset.id} mode="freeze" />
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
         {pendingAssets.length === 0 && <p className="text-sm text-slate-400">Nenhum ativo pendente para aprovação.</p>}
       </section>
 
@@ -36,15 +38,19 @@ export default async function AdminPage() {
         ))}
       </section>
 
-      <section className="grid md:grid-cols-2 gap-4">
+      <section className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <div className="card">
           <h3 className="font-semibold mb-2">Câmbio recente</h3>
-          {exchanges.map((e) => <p key={e.id} className="text-sm border-b border-border py-1 break-words">{e.user.username} {e.type} <StatusBadge value={e.status} /></p>)}
+          <div className="space-y-2">
+            {exchanges.map((e) => <p key={e.id} className="text-sm border border-border rounded-lg p-2 break-words">{e.user.username} {e.type} <StatusBadge value={e.status} /></p>)}
+          </div>
           {exchanges.length === 0 && <p className="text-sm text-slate-400">Sem operações recentes.</p>}
         </div>
         <div className="card">
           <h3 className="font-semibold mb-2">Auditoria</h3>
-          {auditLogs.map((log) => <p key={log.id} className="text-sm border-b border-border py-1 break-words">{log.action} · {log.actor?.username ?? 'system'}</p>)}
+          <div className="space-y-2">
+            {auditLogs.map((log) => <p key={log.id} className="text-sm border border-border rounded-lg p-2 break-words">{log.action} · {log.actor?.username ?? 'system'}</p>)}
+          </div>
           {auditLogs.length === 0 && <p className="text-sm text-slate-400">Sem logs de auditoria.</p>}
         </div>
       </section>

@@ -11,12 +11,19 @@ function hashToken(token: string) {
   return createHash('sha256').update(token).digest('hex');
 }
 
+export function isValidSessionCookieFormat(token?: string): token is string {
+  return Boolean(token && /^[a-f0-9]{64}$/i.test(token));
+}
+
 export async function createSession(userId: string) {
   const token = randomBytes(32).toString('hex');
   const hashedToken = hashToken(token);
   const expiresAt = new Date(Date.now() + THIRTY_DAYS * 1000);
 
-  await prisma.session.create({ data: { token: hashedToken, userId, expiresAt } });
+  await prisma.$transaction([
+    prisma.session.deleteMany({ where: { userId, expiresAt: { lt: new Date() } } }),
+    prisma.session.create({ data: { token: hashedToken, userId, expiresAt } }),
+  ]);
 
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -30,16 +37,19 @@ export async function createSession(userId: string) {
 export async function destroySession() {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
-  if (token) {
+  if (isValidSessionCookieFormat(token)) {
     await prisma.session.deleteMany({ where: { token: hashToken(token) } });
-    cookieStore.delete(SESSION_COOKIE);
   }
+  cookieStore.delete(SESSION_COOKIE);
 }
 
 export async function getCurrentUser() {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!token) return null;
+  if (!isValidSessionCookieFormat(token)) {
+    cookieStore.delete(SESSION_COOKIE);
+    return null;
+  }
 
   const hashedToken = hashToken(token);
   const session = await prisma.session.findUnique({ where: { token: hashedToken }, include: { user: true } });

@@ -9,19 +9,21 @@ export default async function ExchangePage() {
 
   return (
     <div className="space-y-4">
-      <section className="grid md:grid-cols-2 gap-4">
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ExchangeOperationForm type="DEPOSIT" />
         <ExchangeOperationForm type="WITHDRAW" />
       </section>
 
       <section className="card">
         <h3 className="font-semibold mb-2">Histórico de câmbio</h3>
-        {operations.map((op) => (
-          <div key={op.id} className="flex flex-col gap-2 sm:flex-row sm:justify-between border-b border-border py-2 text-sm">
-            <span className="break-words">{op.type} · jogo {Number(op.amountGameCurrency).toFixed(2)} · plataforma R$ {Number(op.amountPlatformCurrency).toFixed(2)}</span>
-            <StatusBadge value={op.status} />
-          </div>
-        ))}
+        <div className="space-y-2">
+          {operations.map((op) => (
+            <div key={op.id} className="flex flex-col gap-2 sm:flex-row sm:justify-between border border-border rounded-lg p-3 text-sm">
+              <span className="break-words">{op.type} · jogo {Number(op.amountGameCurrency).toFixed(2)} · plataforma R$ {Number(op.amountPlatformCurrency).toFixed(2)}</span>
+              <StatusBadge value={op.status} />
+            </div>
+          ))}
+        </div>
         {operations.length === 0 && <p className="text-sm text-slate-400">Nenhuma operação de câmbio registrada.</p>}
       </section>
     </div>
