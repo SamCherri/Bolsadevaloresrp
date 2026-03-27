@@ -2,8 +2,11 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { CandlestickChart } from '@/components/charts/candlestick-chart';
 import { OrderForm } from '@/components/forms/order-form';
+import { requireRole } from '@/lib/auth';
+import { UserRole } from '@prisma/client';
 
 export default async function AssetDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireRole([UserRole.INVESTOR, UserRole.ISSUER, UserRole.ADMIN]);
   const { id } = await params;
   const asset = await prisma.asset.findUnique({
     where: { id },
@@ -23,10 +26,9 @@ export default async function AssetDetailsPage({ params }: { params: Promise<{ i
   return (
     <div className="space-y-4">
       <section className="card">
-        <h2 className="text-2xl font-bold">{asset.ticker} - {asset.name}</h2>
-        <p className="text-slate-300 mt-2">{asset.description}</p>
-        <p className="text-xs text-warning mt-2">No MVP, candles podem conter dados demonstrativos seedados e atualização simplificada por trade.</p>
-        <div className="grid md:grid-cols-3 gap-3 mt-4 text-sm">
+        <h2 className="text-xl sm:text-2xl font-bold break-words">{asset.ticker} - {asset.name}</h2>
+        <p className="text-slate-300 mt-2 break-words">{asset.description}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4 text-sm">
           <p>Emissor: {asset.issuer.username}</p>
           <p>Preço atual: R$ {Number(asset.currentPrice).toFixed(2)}</p>
           <p>Supply: {asset.circulatingSupply}/{asset.totalSupply}</p>
@@ -36,10 +38,12 @@ export default async function AssetDetailsPage({ params }: { params: Promise<{ i
         </div>
       </section>
 
-      <CandlestickChart data={candles} />
+      <div className="card p-2 sm:p-4 overflow-hidden">
+        <CandlestickChart data={candles} />
+      </div>
 
       {asset.status === 'ACTIVE' && (
-        <section className="grid md:grid-cols-2 gap-4">
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <OrderForm assetId={asset.id} type="BUY" />
           <OrderForm assetId={asset.id} type="SELL" />
         </section>
@@ -47,9 +51,9 @@ export default async function AssetDetailsPage({ params }: { params: Promise<{ i
 
       <section className="card">
         <h3 className="font-semibold mb-2">Histórico de trades</h3>
-        <div className="space-y-1">
+        <div className="space-y-2">
           {asset.trades.map((trade) => (
-            <div key={trade.id} className="text-sm border-b border-border py-1 break-words">{trade.quantity} cotas @ R$ {Number(trade.price).toFixed(2)} · {new Date(trade.createdAt).toLocaleString('pt-BR')}</div>
+            <div key={trade.id} className="text-sm border border-border rounded-lg p-3 break-words">{trade.quantity} cotas @ R$ {Number(trade.price).toFixed(2)} · {new Date(trade.createdAt).toLocaleString('pt-BR')}</div>
           ))}
           {asset.trades.length === 0 && <p className="text-sm text-slate-400">Sem trades executados para este ativo.</p>}
         </div>

@@ -1,18 +1,21 @@
 import { prisma } from '@/lib/prisma';
-import { expirePendingExchangeOperations } from '@/domain/exchange';
 
 export async function getUserExchangeOperations(userId: string, take = 20) {
-  await expirePendingExchangeOperations();
   return prisma.exchangeOperation.findMany({
-    where: { userId },
+    where: {
+      userId,
+      OR: [{ status: { not: 'PENDING' } }, { expiresAt: { gte: new Date() } }],
+    },
     orderBy: { createdAt: 'desc' },
     take,
   });
 }
 
 export async function getCollaboratorExchangeOperations() {
-  await expirePendingExchangeOperations();
   return prisma.exchangeOperation.findMany({
+    where: {
+      OR: [{ status: { not: 'PENDING' } }, { expiresAt: { gte: new Date() } }],
+    },
     include: { user: true },
     orderBy: { createdAt: 'desc' },
   });
